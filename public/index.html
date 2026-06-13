@@ -37,18 +37,7 @@
         #guide-next { background: #ffa500; color: black; }
         #guide-skip { background: transparent; color: #aaa; text-decoration: underline; }
     </style>
-    <script src="/socket.io/socket.io.js" ></script>
-    <script>
-    // Burası tarayıcı tarafıdır, burada window.location.origin kullanabilirsin!
-   const socket = io({
-    transports: ['websocket'],
-    upgrade: false
-});
-
-    socket.on('connect', () => {
-        console.log("Sunucuya bağlandım!");
-    });
-</script>
+  
     
 </head>
 <body>
@@ -95,7 +84,11 @@
     <canvas id="infiniteCanvas"></canvas>
 
     <script>
-        socket = io(); 
+        
+       const socket = io(window.location.origin, {
+    transports: ['websocket'],
+    upgrade: false
+});
         const canvas = document.getElementById('infiniteCanvas');
         const ctx = canvas.getContext('2d');
         const leaderboardList = document.getElementById('leaderboard-list');
