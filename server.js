@@ -1,3 +1,4 @@
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -154,11 +155,11 @@ io.on('connection', (socket) => {
 
 // Sunucu buluta yüklendiğinde oradaki portu otomatik alır, yerelde ise 3000'i kullanır.
 // Eski server.listen satırını tamamen sil ve bunu ekle:
+// ... diğer kodların ...
+
 const PORT = process.env.PORT || 3000;
 
-// Eğer sunucu zaten çalışıyorsa durdurup tekrar başlatmak yerine basit bir kontrol ekleyelim
-if (!server.listening) {
-    server.listen(PORT, () => {
-        console.log(`Sunucu ${PORT} portunda çalışıyor!`);
-    });
-}
+// Dinleyiciyi (listener) güvenli bir şekilde kapatıp açmak için:
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Sunucu ${PORT} portunda başarıyla çalışıyor!`);
+});
