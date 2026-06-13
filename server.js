@@ -153,6 +153,12 @@ io.on('connection', (socket) => {
 });
 
 // Sunucu buluta yüklendiğinde oradaki portu otomatik alır, yerelde ise 3000'i kullanır.
+// Eski server.listen satırını tamamen sil ve bunu ekle:
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Sunucu ${PORT} portunda aktif!`));
-server.listen(PORT, () => console.log(`Sunucu http://localhost:3000 adresinde aktif!`));
+
+// Eğer sunucu zaten çalışıyorsa durdurup tekrar başlatmak yerine basit bir kontrol ekleyelim
+if (!server.listening) {
+    server.listen(PORT, () => {
+        console.log(`Sunucu ${PORT} portunda çalışıyor!`);
+    });
+}
