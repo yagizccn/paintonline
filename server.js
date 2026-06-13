@@ -1,11 +1,15 @@
 
 const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-
 const app = express();
+const http = require('http');
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const { Server } = require("socket.io");
+const io = new Server(server, {
+    cors: {
+        origin: "*", 
+        methods: ["GET", "POST"]
+    }
+});
 
 let allStrokesMemory = [];
 let claimedAreas = {}; // { "X,Y": { username, x, y, width, height, isForSale, price } }
@@ -158,8 +162,6 @@ io.on('connection', (socket) => {
 // ... diğer kodların ...
 
 const PORT = process.env.PORT || 3000;
-
-// Dinleyiciyi (listener) güvenli bir şekilde kapatıp açmak için:
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Sunucu ${PORT} portunda başarıyla çalışıyor!`);
+    console.log(`Sunucu ${PORT} portunda çalışıyor!`);
 });
