@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sonsuz Canlı Tuval - Emlak & Rehber Modu</title>
+    <style>
+        body { margin: 0; font-family: sans-serif; background-color: #1e1e24; color: white; overflow: hidden; height: 100vh; user-select: none; }
+        #ui-container { position: absolute; top: 20px; left: 20px; background: rgba(30, 30, 30, 0.85); backdrop-filter: blur(10px); padding: 15px 25px; border-radius: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; gap: 12px; align-items: center; z-index: 10; border: 1px solid rgba(255,255,255,0.1); }
+        canvas { display: block; position: absolute; top: 0; left: 0; }
+        input[type="color"] { border: none; background: transparent; cursor: pointer; width: 30px; height: 30px; }
+        
+        #leaderboard-container { position: absolute; top: 20px; right: 20px; width: 220px; background: rgba(25px, 25px, 35px, 0.85); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; padding: 15px; z-index: 10; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
+        #leaderboard-container h4 { margin: 0 0 10px 0; color: #ffa500; text-align: center; font-size: 14px; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px; }
+        .leaderboard-row { display: flex; justify-content: space-between; font-size: 13px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .leaderboard-row:first-of-type { color: #ffd700; font-weight: bold; }
+        
+        #login-overlay { position: fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(0,0,0,0.85); display:flex; justify-content:center; align-items:center; z-index:100; }
+        .login-box { background:#2a2a35; padding:30px; border-radius:15px; text-align:center; }
+        .login-box input { padding:10px; width:200px; border-radius:5px; border:none; margin-bottom:15px; font-size:16px; text-align:center;}
+        .login-box button { padding:10px 20px; background:#2ed573; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold;}
+        
+        #warning-toast { position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%); background: #ff4757; color: white; padding: 12px 25px; border-radius: 8px; font-weight: bold; display: none; z-index: 200; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        
+        button.tool-btn { background: #3a3a4a; color: white; border: none; padding: 6px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+        button.active-tool { background: #ffa500 !important; color: black; font-weight: bold; }
+        button.undo-btn { background: #ff4757; color: white; }
+        #stats-hud { margin-left: 10px; font-size: 13px; color: #ffa500; background: rgba(255,165,0,0.1); padding: 4px 10px; border-radius: 10px; border: 1px solid rgba(255,165,0,0.2); }
+
+        /* 🗺️ REHBER SİSTEMİ STİLLERİ */
+        #guide-overlay { position: fixed; bottom: 40px; right: 40px; width: 320px; background: rgba(40, 44, 52, 0.95); backdrop-filter: blur(15px); border: 2px solid #ffa500; border-radius: 20px; padding: 20px; z-index: 150; box-shadow: 0 20px 50px rgba(0,0,0,0.6); display: none; animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        #guide-title { margin: 0 0 10px 0; color: #ffa500; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+        #guide-text { font-size: 14px; line-height: 1.5; color: #e5e5e5; margin-bottom: 20px; }
+        .guide-buttons { display: flex; justify-content: space-between; }
+        .guide-btn { padding: 8px 15px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; }
+        #guide-next { background: #ffa500; color: black; }
+        #guide-skip { background: transparent; color: #aaa; text-decoration: underline; }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+    <div id="login-overlay">
+        <div class="login-box">
+            <h3>Tuvale Katılmak İçin Adınızı Yazın</h3>
+            <input type="text" id="usernameInput" placeholder="Ressam Adı..." maxlength="15"><br>
+            <button id="startBtn">Çizmeye Başla</button>
+        </div>
+    </div>
+
+    <div id="guide-overlay">
+        <h3 id="guide-title">✨ Hoş Geldiniz!</h3>
+        <p id="guide-text">Adımları takip ederek oyun mekaniklerini hızlıca öğrenebilirsiniz.</p>
+        <div class="guide-buttons">
+            <button class="guide-btn" id="guide-skip">Rehberi Geç</button>
+            <button class="guide-btn" id="guide-next">İleri ➡️</button>
+        </div>
+    </div>
+
+    <div id="warning-toast">Bildirim Penceresi</div>
+
+    <div id="leaderboard-container">
+        <h4>🏆 Ressamlar Ligi</h4>
+        <div id="leaderboard-list"></div>
+    </div>
+
+    <div id="ui-container">
+        <span id="welcomeText" style="font-weight:bold; color:#2ed573;"></span>
+        <div id="stats-hud">❤️ 0 Beğeni | 🏢 0/1 Parsel</div>
+
+        <label><input type="color" id="colorPicker" value="#2ed573"></label>
+        <label><input type="range" id="lineWidth" min="2" max="40" value="8" style="width:50px;"></label>
+        
+        <button class="tool-btn active-tool" id="brushBtn">🖌️ Fırça</button>
+        <button class="tool-btn" id="penBtn">🖊️ Tükenmez</button>
+        <button class="tool-btn" id="pencilBtn">✏️ Kurşun</button>
+        <button class="tool-btn" id="sprayBtn">💨 Sprey</button>
+        <button class="tool-btn" id="eraserBtn">🧽 Silgi</button>
+        <button class="tool-btn undo-btn" id="undoBtn">↩️ Geri Al</button>
+    </div>
+
+    <canvas id="infiniteCanvas"></canvas>
+
+    <script>
+        const socket = io("http://localhost:3000"); 
+        const canvas = document.getElementById('infiniteCanvas');
+        const ctx = canvas.getContext('2d');
+        const leaderboardList = document.getElementById('leaderboard-list');
+        
+        const colorPicker = document.getElementById('colorPicker');
+        const lineWidthInput = document.getElementById('lineWidth');
+        const loginOverlay = document.getElementById('login-overlay');
+        const usernameInput = document.getElementById('usernameInput');
+        const startBtn = document.getElementById('startBtn');
+        const welcomeText = document.getElementById('welcomeText');
+        const warningToast = document.getElementById('warning-toast');
+        const statsHud = document.getElementById('stats-hud');
+        
+        // Rehber Elementleri
+        const guideOverlay = document.getElementById('guide-overlay');
+        const guideTitle = document.getElementById('guide-title');
+        const guideText = document.getElementById('guide-text');
+        const guideNext = document.getElementById('guide-next');
+        const guideSkip = document.getElementById('guide-skip');
+
+        const tools = { brush: document.getElementById('brushBtn'), pen: document.getElementById('penBtn'), pencil: document.getElementById('pencilBtn'), spray: document.getElementById('sprayBtn'), eraser: document.getElementById('eraserBtn') };
+        const undoBtn = document.getElementById('undoBtn');
+
+        let myUsername = "";
+        let cameraX = 0, cameraY = 0;
+        let isPanning = false, startPanX = 0, startPanY = 0;
+        let isPainting = false, currentStrokePoints = [];
+        let allStrokes = [];
+        let claimedAreas = {}; 
+        let userLikes = {};
+        let currentMode = "brush"; 
+        let currentHoveredSlot = { x: 0, y: 0 }; 
+
+        // --- 🗺️ REHBER ADIMLARI DATA YAPISI ---
+        let currentGuideStep = 0;
+        const guideSteps = [
+            { title: "🚀 Sonsuz Dünyaya Hoş Geldin!", text: "Burası tüm oyuncuların ortak çizim yaptığı devasa, ucu bucağı olmayan canlı bir tuvaldir!" },
+            { title: "🎮 Haritada Gezinme", text: "Boş bir alana <b>Farenin Sağ Tuşuyla</b> veya <b>Boşluk (Space)</b> tuşuna basılı tutarak sol tıkla sürükleme yaparsan haritada kamerayı özgürce kaydırabilirsin." },
+            { title: "🧱 Parsel Kapma", text: "Turuncu çerçeveli boş kare alanlara <b>Sol Tıklayarak</b> o parseli kendi adına mühürleyebilirsin. İlk başta 1 parsel hakkın var!" },
+            { title: "🖌️ Sanatını Konuştur", text: "Mühürlediğin kendi parselinin içerisine sol tıklayıp sürükleyerek çizim yapabilirsin. Başkalarının parseline çizemezsin!" },
+            { title: "❤️ Beğeni (Like) Sistemi", text: "Diğer ressamların parselindeki <b>❤️ Like</b> butonuna basarak onları destekleyebilirsin. Unutma, kendi çizimini beğenemezsin." },
+            { title: "🏆 Ressamlar Ligi ve Ekonomi", text: "Like aldıkça sağ üstteki liderlik tablosunda yükselirsin! Ayrıca her 5 Like'ta bir yeni parsel açma hakkı kazanırsın." },
+            { title: "💰 Emlak Alım-Satımı", text: "Kendi parselindeki <b>Sat</b> butonuna basarak arsanı Like karşılığı pazara çıkarabilir, veya satılık arsaları Like puanlarınla satın alabilirsin!" }
+        ];
+
+        function startGuide() {
+            currentGuideStep = 0;
+            showGuideStep();
+        }
+
+        function showGuideStep() {
+            if (currentGuideStep < guideSteps.length) {
+                guideOverlay.style.display = 'block';
+                guideTitle.innerHTML = guideSteps[currentGuideStep].title;
+                guideText.innerHTML = guideSteps[currentGuideStep].text;
+                
+                if (currentGuideStep === guideSteps.length - 1) {
+                    guideNext.innerText = "Kapat & Başla! 🚀";
+                } else {
+                    guideNext.innerText = "İleri ➡️";
+                }
+            } else {
+                guideOverlay.style.display = 'none';
+            }
+        }
+
+        guideNext.addEventListener('click', () => {
+            currentGuideStep++;
+            if (currentGuideStep < guideSteps.length) {
+                showGuideStep();
+            } else {
+                guideOverlay.style.display = 'none';
+            }
+        });
+
+        guideSkip.addEventListener('click', () => {
+            guideOverlay.style.display = 'none';
+        });
+
+
+        // OTURUM KONTROLÜ
+        const savedUsername = localStorage.getItem('canvas_username');
+        if (savedUsername) {
+            myUsername = savedUsername; welcomeText.innerText = myUsername; loginOverlay.style.display = 'none';
+            socket.emit('register-user', myUsername); resizeCanvas();
+            // Cihazda kayıtlı hesap varsa rehberi otomatik açma, sıfırdan giriyorsa aç
+        }
+
+        startBtn.addEventListener('click', () => {
+            const enteredName = usernameInput.value.trim();
+            if(enteredName !== "") {
+                localStorage.setItem('canvas_username', enteredName);
+                myUsername = enteredName; welcomeText.innerText = myUsername; loginOverlay.style.display = 'none';
+                socket.emit('register-user', myUsername); resizeCanvas();
+                
+                // 🚀 Yeni oyuncu girişi yapıldığı an rehberi başlat
+                startGuide();
+            } else { alert("Lütfen geçerli bir isim girin!"); }
+        });
+
+        Object.keys(tools).forEach(mode => {
+            tools[mode].addEventListener('click', () => {
+                currentMode = mode;
+                Object.values(tools).forEach(btn => btn.classList.remove('active-tool'));
+                tools[mode].classList.add('active-tool');
+            });
+        });
+        
+        undoBtn.addEventListener('click', () => { socket.emit('undo-stroke', myUsername); });
+
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; redraw(); }
+        window.addEventListener('resize', resizeCanvas);
+
+        function isStrokeInView(stroke, viewLeft, viewRight, viewTop, viewBottom) {
+            if (!stroke.points || stroke.points.length === 0) return false;
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            for(let i=0; i<stroke.points.length; i++) {
+                let p = stroke.points[i];
+                if (p.worldX < minX) minX = p.worldX; if (p.worldX > maxX) maxX = p.worldX;
+                if (p.worldY < minY) minY = p.worldY; if (p.worldY > maxY) maxY = p.worldY;
+            }
+            return (maxX >= viewLeft && minX <= viewRight && maxY >= viewTop && minY <= viewBottom);
+        }
+
+        function drawSingleStroke(stroke) {
+            if (!stroke.points || stroke.points.length === 0) return;
+            ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+            if (stroke.type === "pen") { ctx.lineWidth = 3; ctx.strokeStyle = stroke.color; } 
+            else if (stroke.type === "pencil") { ctx.lineWidth = stroke.size; ctx.strokeStyle = stroke.color; ctx.globalAlpha = 0.25; } 
+            else if (stroke.type === "spray") {
+                ctx.fillStyle = stroke.color;
+                stroke.points.forEach(p => {
+                    for (let i = 0; i < 6; i++) {
+                        const angle = Math.random() * Math.PI * 2; const radius = Math.random() * stroke.size;
+                        ctx.fillRect(p.worldX + Math.cos(angle) * radius, p.worldY + Math.sin(angle) * radius, 1.5, 1.5);
+                    }
+                });
+                ctx.restore(); return;
+            } else { ctx.lineWidth = stroke.size; ctx.strokeStyle = stroke.color; }
+
+            ctx.beginPath(); ctx.moveTo(stroke.points[0].worldX, stroke.points[0].worldY);
+            for (let i = 1; i < stroke.points.length; i++) { ctx.lineTo(stroke.points[i].worldX, stroke.points[i].worldY); }
+            ctx.stroke(); ctx.restore();
+        }
+
+        function updateHudAndLeaderboard() {
+            if(!myUsername) return;
+            const myLikes = userLikes[myUsername] || 0;
+            const maxAllowed = 1 + Math.floor(myLikes / 5);
+            let currentOwned = 0;
+            Object.values(claimedAreas).forEach(area => { if (area.username === myUsername) currentOwned++; });
+            statsHud.innerHTML = `❤️ ${myLikes} Beğeni | 🏢 ${currentOwned}/${maxAllowed} Parsel`;
+
+            leaderboardList.innerHTML = "";
+            let sortedUsers = Object.keys(userLikes).sort((a, b) => userLikes[b] - userLikes[a]);
+            sortedUsers.slice(0, 5).forEach((user, index) => {
+                const row = document.createElement('div');
+                row.className = "leaderboard-row";
+                row.innerHTML = `<span>${index + 1}. ${user}</span> <span>❤️ ${userLikes[user]}</span>`;
+                leaderboardList.appendChild(row);
+            });
+        }
+
+        function redraw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save(); ctx.translate(canvas.width / 2 - cameraX, canvas.height / 2 - cameraY);
+
+            const viewLeft = cameraX - canvas.width / 2; const viewRight = cameraX + canvas.width / 2;
+            const viewTop = cameraY - canvas.height / 2; const viewBottom = cameraY + canvas.height / 2;
+
+            const slotId = `${currentHoveredSlot.x},${currentHoveredSlot.y}`;
+            if (!claimedAreas[slotId]) {
+                ctx.fillStyle = "rgba(255, 165, 0, 0.08)"; ctx.strokeStyle = "rgba(255, 165, 0, 0.4)"; ctx.lineWidth = 2;
+                ctx.fillRect(currentHoveredSlot.x, currentHoveredSlot.y, 300, 300); ctx.strokeRect(currentHoveredSlot.x, currentHoveredSlot.y, 300, 300);
+            }
+
+            allStrokes.forEach(stroke => { if (isStrokeInView(stroke, viewLeft, viewRight, viewTop, viewBottom)) drawSingleStroke(stroke); });
+
+            if (isPainting && currentStrokePoints.length > 0) {
+                const activeColor = currentMode === "eraser" ? "#1e1e24" : colorPicker.value;
+                drawSingleStroke({ type: currentMode, color: activeColor, size: lineWidthInput.value, points: currentStrokePoints });
+            }
+
+            Object.keys(claimedAreas).forEach(id => {
+                const area = claimedAreas[id];
+                if (area.x + 300 < viewLeft || area.x > viewRight || area.y + 300 < viewTop || area.y > viewBottom) return;
+
+                const isMe = area.username === myUsername;
+                ctx.strokeStyle = area.isForSale ? "rgba(255, 215, 0, 1)" : (isMe ? "rgba(46, 213, 115, 1)" : "rgba(235, 94, 40, 0.8)");
+                ctx.lineWidth = 3; ctx.strokeRect(area.x, area.y, area.width, area.height);
+                
+                ctx.fillStyle = area.isForSale ? "rgba(212, 175, 55, 0.9)" : (isMe ? "rgba(46, 213, 115, 0.9)" : "rgba(235, 94, 40, 0.9)");
+                ctx.fillRect(area.x, area.y, 145, 26);
+                ctx.fillStyle = "white"; ctx.font = "bold 11px sans-serif";
+                ctx.fillText(area.isForSale ? `💰 Satılık: ${area.price}` : `🔒 ${area.username}`, area.x + 8, area.y + 17);
+
+                if (isMe && !area.isForSale) {
+                    ctx.fillStyle = "#3498db"; ctx.fillRect(area.x + 150, area.y, 40, 26);
+                    ctx.fillStyle = "white"; ctx.fillText("Sat", area.x + 162, area.y + 17);
+                }
+
+                ctx.fillStyle = area.isForSale ? "#2ed573" : "rgba(255, 71, 87, 0.9)";
+                ctx.fillRect(area.x + 215, area.y, 85, 26);
+                ctx.fillStyle = "white";
+                ctx.fillText(area.isForSale ? "🛒 Satın Al" : `❤️ Like (${userLikes[area.username] || 0})`, area.x + 222, area.y + 17);
+            });
+
+            ctx.restore();
+        }
+
+        function checkPointOwnership(point) {
+            for (let id in claimedAreas) {
+                const area = claimedAreas[id];
+                if (area.username === myUsername && point.worldX >= area.x && point.worldX <= area.x + area.width && point.worldY >= area.y && point.worldY <= area.y + area.height) return true;
+            }
+            return false;
+        }
+
+        function showWarning(msg) { if(msg) warningToast.innerText = msg; warningToast.style.display = 'block'; setTimeout(() => { warningToast.style.display = 'none'; }, 2500); }
+        function screenToWorld(screenX, screenY) { return { worldX: screenX - (canvas.width / 2) + cameraX, worldY: screenY - (canvas.height / 2) + cameraY }; }
+
+        let spacePressed = false;
+        window.addEventListener('keydown', (e) => { if(e.code === 'Space') spacePressed = true; });
+        window.addEventListener('keyup', (e) => { if(e.code === 'Space') spacePressed = false; });
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (spacePressed || e.button === 2) { isPanning = true; startPanX = e.clientX; startPanY = e.clientY; } 
+            else if (e.button === 0) {
+                if(!myUsername) return;
+                const worldCoords = screenToWorld(e.clientX, e.clientY);
+                const targetSlotX = Math.floor(worldCoords.worldX / 300) * 300; const targetSlotY = Math.floor(worldCoords.worldY / 300) * 300;
+                const slotId = `${targetSlotX},${targetSlotY}`; const clickedArea = claimedAreas[slotId];
+
+                if (clickedArea) {
+                    if (clickedArea.username === myUsername && !clickedArea.isForSale) {
+                        if (worldCoords.worldX >= clickedArea.x + 150 && worldCoords.worldX <= clickedArea.x + 190 && worldCoords.worldY >= clickedArea.y && worldCoords.worldY <= clickedArea.y + 26) {
+                            const desiredPrice = prompt("Bu arsayı kaç Like karşılığında satılığa çıkarmak istersiniz?", "10");
+                            if (desiredPrice !== null && !isNaN(desiredPrice) && parseInt(desiredPrice) >= 0) socket.emit('put-for-sale', { slotId, username: myUsername, price: desiredPrice });
+                            return;
+                        }
+                    }
+                    if (worldCoords.worldX >= clickedArea.x + 215 && worldCoords.worldX <= clickedArea.x + 300 && worldCoords.worldY >= clickedArea.y && worldCoords.worldY <= clickedArea.y + 26) {
+                        if (clickedArea.isForSale) socket.emit('claim-area', { username: myUsername, x: targetSlotX, y: targetSlotY });
+                        else socket.emit('like-slot', { slotId, targetUser: clickedArea.username, myUsername });
+                        return;
+                    }
+                    if (clickedArea.username === myUsername) { isPainting = true; currentStrokePoints = [worldCoords]; redraw(); } 
+                    else { showWarning(clickedArea.isForSale ? "Bu alan satılık! Almak için yeşil butona basın." : `Bu alan ${clickedArea.username} adına mühürlü!`); }
+                } else { socket.emit('claim-area', { username: myUsername, x: targetSlotX, y: targetSlotY }); }
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const worldCoords = screenToWorld(e.clientX, e.clientY);
+            const slotX = Math.floor(worldCoords.worldX / 300) * 300; const slotY = Math.floor(worldCoords.worldY / 300) * 300;
+            if (slotX !== currentHoveredSlot.x || slotY !== currentHoveredSlot.y) { currentHoveredSlot = { x: slotX, y: slotY }; if (!isPainting && !isPanning) redraw(); }
+            if (isPanning) { cameraX -= (e.clientX - startPanX); cameraY -= (e.clientY - startPanY); startPanX = e.clientX; startPanY = e.clientY; redraw(); } 
+            else if (isPainting) {
+                if (!checkPointOwnership(worldCoords)) { isPainting = false; showWarning("Kendi parsel sınırınızın dışına çıkamazsınız!"); saveCurrentStroke(); return; }
+                currentStrokePoints.push(worldCoords); redraw();
+            }
+        });
+
+        function saveCurrentStroke() {
+            if (currentStrokePoints.length > 0) {
+                const activeColor = currentMode === "eraser" ? "#1e1e24" : colorPicker.value;
+                const newStroke = { type: currentMode, color: activeColor, size: lineWidthInput.value, points: currentStrokePoints, creator: myUsername };
+                allStrokes.push(newStroke); socket.emit('new-stroke', newStroke); redraw();
+            }
+        }
+
+        canvas.addEventListener('mouseup', () => { if (isPanning) isPanning = false; if (isPainting) { isPainting = false; saveCurrentStroke(); } });
+        socket.on('canvas-history', (data) => { allStrokes = data.strokes; claimedAreas = data.areas; userLikes = data.likes; updateHudAndLeaderboard(); redraw(); });
+        socket.on('sync-areas', (data) => { claimedAreas = data.areas; userLikes = data.likes; updateHudAndLeaderboard(); redraw(); });
+        socket.on('broadcast-stroke', (remoteStroke) => { allStrokes.push(remoteStroke); redraw(); });
+        socket.on('update-strokes-after-undo', (updatedStrokes) => { allStrokes = updatedStrokes; redraw(); });
+        socket.on('security-warning', (msg) => { showWarning(msg); isPainting = false; redraw(); });
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+    </script>
+</body>
+</html>
