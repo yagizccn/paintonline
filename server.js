@@ -165,20 +165,29 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`Sunucu ${PORT} portunda çalışıyor!`);
 });
+// Mobil Dokunma Desteği
 canvas.addEventListener('touchstart', (e) => {
-    let touch = e.touches[0];
-    let mouseEvent = new MouseEvent('mousedown', { clientX: touch.clientX, clientY: touch.clientY, button: 0 });
+    e.preventDefault(); // Sayfa kaymasını engeller
+    const touch = e.touches[0];
+    const mouseEvent = new MouseEvent('mousedown', {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        button: 0
+    });
     canvas.dispatchEvent(mouseEvent);
 }, { passive: false });
 
 canvas.addEventListener('touchmove', (e) => {
-    let touch = e.touches[0];
-    let mouseEvent = new MouseEvent('mousemove', { clientX: touch.clientX, clientY: touch.clientY });
+    e.preventDefault(); 
+    const touch = e.touches[0];
+    const mouseEvent = new MouseEvent('mousemove', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+    });
     canvas.dispatchEvent(mouseEvent);
-    e.preventDefault(); // Sayfanın kaymasını engellemek için
 }, { passive: false });
 
-canvas.addEventListener('touchend', () => {
-    let mouseEvent = new MouseEvent('mouseup');
+canvas.addEventListener('touchend', (e) => {
+    const mouseEvent = new MouseEvent('mouseup', {});
     canvas.dispatchEvent(mouseEvent);
-});
+}, { passive: false });
